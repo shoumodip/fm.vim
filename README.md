@@ -60,7 +60,7 @@ Some of the features of `fm.vim`. Throughout the features list, whenever I menti
 ### Open Fm
 - `:Explore` open fm in the current window.
 - `:Sexplore` open fm in a new split.
-- `:Vexplore` open fm in a new verical split.
+- `:Vexplore` open fm in a new vertical split.
 - `:Texplore` open fm in a new tab.
 
 ### Select items (`x`)
