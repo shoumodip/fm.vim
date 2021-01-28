@@ -32,7 +32,7 @@ let g:fm#keys = {
       \ }
 " }}}
 " Abstract function for showing error messages {{{
-function fm#error(msg) abort
+function! fm#error(msg) abort
   echohl ErrorMsg
   echo a:msg
   echohl Normal
@@ -41,7 +41,7 @@ function fm#error(msg) abort
 endfunction
 " }}}
 " Abstract function for handling prompts {{{
-function fm#prompt(msg, ...) abort
+function! fm#prompt(msg, ...) abort
 
   echohl fmPrompt
 
