@@ -1,3 +1,7 @@
+:Explore	fm.txt	/*:Explore*
+:Sexplore	fm.txt	/*:Sexplore*
+:Texplore	fm.txt	/*:Texplore*
+:Vexplore	fm.txt	/*:Vexplore*
 Fm.vim	fm.txt	/*Fm.vim*
 fm#action()	fm.txt	/*fm#action()*
 fm#change_dir()	fm.txt	/*fm#change_dir()*

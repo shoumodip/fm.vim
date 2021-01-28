@@ -51,11 +51,17 @@ cd ~/.config/nvim/pack/plugins/start && git clone https://github.com/shoumodip/f
 ## Features
 Some of the features of `fm.vim`. Throughout the features list, whenever I mention '**items**', I mean files/directories.
 
-### How to exit Fm
+### Basic keybindings
 - `l` or `<CR>` Open the item under the cursor.
 - `h` or `<BS>` Go up a directory. (Like `cd ..`)
 - `q` Close fm.
 - `R` Refresh fm.
+
+### Open Fm
+- `:Explore` open fm in the current window.
+- `:Sexplore` open fm in a new split.
+- `:Vexplore` open fm in a new verical split.
+- `:Texplore` open fm in a new tab.
 
 ### Select items (`x`)
 This is the main reason why I even need a file manager in the first place. Files and directories which you can't just glob match your way through, good luck maintaining patience in the terminal.

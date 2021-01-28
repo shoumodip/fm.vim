@@ -618,8 +618,9 @@ function! fm#edit_save() abort
 
   let text = getline(0, "$")
   let cur_line = line(".") + 1
+  let cmd = ""
 
-  " Apply the changes made to the filestructure
+  " Get the changes made to the file structure
   let dir = getbufvar(b:fm_edit_target, "fm_current_dir") . "/"
   let counter = 2
 
@@ -628,11 +629,15 @@ function! fm#edit_save() abort
     let item = getbufline(b:fm_edit_target, counter)[0]
     let item = substitute(item, '[@*=>|/]$', "", "")
 
-    let cmd = "mv " . dir . item . " " . dir . line
-    silent! call system(cmd)
+    if item !=# line
+      let cmd .= "mv " . dir . item . " " . dir . line . "; "
+    endif
 
     let counter += 1
   endfor
+
+  " Apply the changes made to the file structure
+  silent! call system(cmd)
 
   " Get rid of the edit buffer and render
   silent! call fm#edit_close()
@@ -794,9 +799,9 @@ endfunction
 " Netrw sucks hahaha!
 let g:loaded_netrwPlugin = 1
 command! Explore call fm#start()
-
-" A little mapping to make life a bit easier
-nnoremap <silent> <Leader>d :call fm#start()<CR>
+command! Vexplore wincmd v | Explore
+command! Sexplore wincmd s | Explore
+command! Texplore tab split | Explore
 
 " Open netrw automatically on a buffer read if it is a directory
 autocmd BufEnter * if isdirectory(resolve(expand("%:p"))) | call fm#start() | endif

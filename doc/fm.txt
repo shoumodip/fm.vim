@@ -18,7 +18,15 @@ attempting to use Netrw.
 - Requires GNU `ls` for the `--group-directories-first` option.
 
 -----------------------------------------------------------------------------
-|How| |to| |exit| |Fm|
+|Open| |fm|
+
+- `:Explore`  Open fm in the current window                      *:Explore*
+- `:Sexplore` Open fm in a new split                             *:Sexplore*
+- `:Vexplore` Open fm in a new vertical split                    *:Vexplore*
+- `:Texplore` Open fm in a new tab                               *:Texplore*
+
+-----------------------------------------------------------------------------
+|Basic| |keybindings|
 
 - `l` or <CR> Open the item under the cursor.
 - `h` or <BS> Go up a directory. (Like `cd ..`)
