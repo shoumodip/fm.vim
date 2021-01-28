@@ -18,6 +18,14 @@ attempting to use Netrw.
 - Requires GNU `ls` for the `--group-directories-first` option.
 
 -----------------------------------------------------------------------------
+|How| |to| |exit| |Fm|
+
+- `l` or <CR> Open the item under the cursor.
+- `h` or <BS> Go up a directory. (Like `cd ..`)
+- `q` Close fm.
+- `R` Refresh fm.
+
+-----------------------------------------------------------------------------
 |Features|
 
 Some of the features of `fm.vim`. Throughout the features list, whenever I
