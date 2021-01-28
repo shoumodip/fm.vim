@@ -69,6 +69,9 @@ Whether hidden files should be displayed. It is basically toggling the `-A` flag
 ### Move items to a directory (`m`)
 Move items to a directory. If there are selected items, they get moved. Otherwise work on the item under the cursor.
 
+### Delete items (`D`)
+Delete items. If there are selected items, they get deleted. Otherwise delete the item under the cursor. ***Warning:*** this removes items recursively (`rm -rf`), be careful with this. By default this will ask for confirmation, but take extra precaution before deleting if `g:fm#require_confirm` is set to a "falsy" value.
+
 ### Copy items to a directory (`c`)
 Copy items to a directory. If there are selected items, they get moved. Otherwise work on the item under the cursor. (*Fun fact:* it is the same function as the move items feature.)
 
