@@ -107,7 +107,7 @@ function! fm#get_items() abort
     endif
 
     " Pass on the current item as the selected item
-    let items = fnameescape(b:fm_current_dir . "/" . getline("."))
+    let items = b:fm_current_dir . "/" . getline(".")
     let items = [substitute(items, '[@*=>|/]$', "", "")]
   endif
 
@@ -437,7 +437,7 @@ endfunction
 " Delete a file/directory {{{
 function! fm#delete() abort
 
-  let line = join(fm#get_items(), " ")
+  let line = join(map(fm#get_items(), 'fnameescape(v:val)'), " ")
 
   if line == ''
     call fm#error("Nothing to delete!")

@@ -114,7 +114,7 @@ containing the item under the cursor. This can be used to make custom
 functionality. For example, a "trash" function. >
 
   function! Trash()
-    let items = join(fm#get_items(), " ")
+    let items = join(map(fm#get_items(), 'fnameescape(v:val)'), " ")
     let cmd = "mv " . items . " ~/Trash" " Let '~/Trash' be the trash directory
 
     silent! call system(cmd)
@@ -125,8 +125,7 @@ functionality. For example, a "trash" function. >
   let g:fm#keys["t"] = "Trash"
 <
 Now `t` is a keybind which will run your custom function `Trash()` in Fm. The
-possibilities with this are virtually endless. By the way don't worry about
-escaping the items, `fm#get_items` does that automatically for you.
+possibilities with this are virtually endless.
 
 
 fm#action({text}, {key})                                      *fm#action()*

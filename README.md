@@ -105,7 +105,7 @@ Returns a list of the selected items. If there are none, it will return a list c
 
 ```vim
 function! Trash()
-  let items = join(fm#get_items(), " ")
+  let items = join(map(fm#get_items(), 'fnameescape(v:val)'), " ")
   let cmd = "mv " . items . " ~/Trash" " Let '~/Trash' be the trash directory
 
   silent! call system(cmd)
@@ -116,7 +116,7 @@ endfunction
 let g:fm#keys["t"] = "Trash"
 ```
 
-Now `t` is a keybind which will run your custom function `Trash()` in Fm. The possibilities with this are virtually endless. By the way don't worry about escaping the items, `fm#get_items` does that automatically for you.
+Now `t` is a keybind which will run your custom function `Trash()` in Fm. The possibilities with this are virtually endless.
 
 ### `fm#action(TEXT, KEY)`
 Take all the selected items (or the current line, depends) and place them in the command mode prompt separated with a space. This is the function behind the `.` and `!` keybindings. It takes two optional parameters, the `TEXT` to place before the cursor and the `KEY` to press after placing the items in the command prompt. For example this is the `!` keybinding.
