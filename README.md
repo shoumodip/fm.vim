@@ -4,7 +4,7 @@
 A hyper-extensible minimal file manager for Vim. This aims to solve all of the bugs and issues I have encountered when attempting to use Netrw.
 
 ## Pros
-- Extremely minimal, only 444 SLOC. Compare that to netrw (over 10000).
+- Extremely minimal, less than 500 SLOC. Compare that to netrw (over 10000).
 - Necessary features are built in with smarter (imho) implementations.
 - Edit mode, just this should be enough. (Check description below)
 - Configurable and completely scriptable. (See the API documentation below)
