@@ -500,14 +500,14 @@ function! fm#move(...) abort
   endif
 
   if line == ''
-    call fm#error("Nothing to " . (exists("a:1") ? "copy" : "move") . "!")
+    call fm#error("Nothing to " . (exists("a:1") && a:1 ? "copy" : "move") . "!")
     return ""
   endif
 
   if exists("a:2") && !empty(a:2)
     let dir = (empty(matchstr(a:2, "/")) ? b:fm_current_dir . "/" : "") . a:2
   else
-    let prompt = (exists("a:1") ? "Copy" : "Move") . " to: "
+    let prompt = (exists("a:1") && a:1 ? "Copy" : "Move") . " to: "
     let item = substitute(b:fm_current_dir, '/$', "", "g") . "/"
     let dir = fm#prompt(prompt, item)
   endif
