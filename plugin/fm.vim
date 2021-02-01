@@ -1,7 +1,7 @@
 " Highlight groups {{{
 highlight! link fmDirectory fmPrompt
-highlight! link fmExecutable Operator
-highlight! link fmLink Include
+highlight! link fmExecutable String
+highlight! link fmLink Operator
 highlight! link fmCurrent Operator
 highlight! link fmSelected Visual
 highlight! link fmPrompt Function
@@ -131,7 +131,7 @@ function! fm#draw_selects() abort
   " Go through all the items in the current directory selection list and
   " highlight them as being selected
   for item in b:fm_selected[b:fm_current_dir]
-    execute "syntax match fmSelected '^" . substitute(item, "'", "\\\\'", "g") . "[@*=>|/]$'"
+    execute "syntax match fmSelected '^" . substitute(item, "'", "\\\\'", "g") . "[@*=>|/]\?$'"
   endfor
 
   return ""

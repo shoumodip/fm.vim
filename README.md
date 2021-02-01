@@ -264,8 +264,8 @@ The afforementioned settings are used as the global settings for Fm. Therefore o
 
 ### Colors
 - `fmDirectory` Directories in Fm. Links to `fmPrompt`.
-- `fmExecutable` Executable files in Fm. Links to `Operator`.
-- `fmLink` Symlinks in Fm. Links to `Include`.
+- `fmExecutable` Executable files in Fm. Links to `String`.
+- `fmLink` Symlinks in Fm. Links to `Operator`.
 - `fmCurrent` The current directory shown in the first line. Links to `Operator`.
 - `fmSelected` The selected items. Links to `Visual`.
 - `fmPrompt` The custom prompts of Fm. Links to `Function`.
