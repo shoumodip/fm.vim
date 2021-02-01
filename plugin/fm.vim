@@ -630,7 +630,7 @@ function! fm#edit_save() abort
     let item = substitute(item, '[@*=>|/]$', "", "")
 
     if item !=# line
-      let cmd .= "mv " . dir . item . " " . dir . line . "; "
+      let cmd .= "mv " . shellescape(dir . item) . " " . shellescape(dir . line) . "; "
     endif
 
     let counter += 1
