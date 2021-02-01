@@ -181,7 +181,7 @@ function! fm#render() abort
 
   " Generate the list of files and directories
   let cmd = "ls " . (b:fm_show_hidden ? "-A " : "")
-  let cmd = cmd . b:fm_ls_opts . " " . fnameescape(b:fm_current_dir)
+  let cmd = cmd . b:fm_ls_opts . " " . shellescape(b:fm_current_dir)
 
   setlocal modifiable
 
@@ -328,7 +328,7 @@ function! fm#rename(...) abort
     return ""
   endif
 
-  let cmd = "mv " . fnameescape(old_name) . " " . fnameescape(new_name)
+  let cmd = "mv " . shellescape(old_name) . " " . shellescape(new_name)
 
   " Check if a file/directory with that name exist already
   if !empty(glob(b:fm_current_dir . "/" . new_name))
@@ -338,7 +338,7 @@ function! fm#rename(...) abort
 
     " User confirmed overwrite, delete it
     if choice ==? "y"
-      silent! call system("rm -rf " . fnameescape(new_name))
+      silent! call system("rm -rf " . shellescape(new_name))
     else
       return ""
     endif
@@ -387,7 +387,7 @@ function! fm#new(type, ...) abort
     if choice ==? "y"
 
       " It was at this moment that the file knew, it f**ked up
-      silent! call system("rm -rf " . fnameescape(name))
+      silent! call system("rm -rf " . shellescape(name))
     else
       return ""
     endif
@@ -425,7 +425,7 @@ function! fm#new(type, ...) abort
 
   let file_name = fnamemodify(name, ":p:t")
   let b:fm_current_dir = file_parent_dir
-  let cmd = (a:type ==# "file" ? "> " : "mkdir ") . fnameescape(name)
+  let cmd = (a:type ==# "file" ? "> " : "mkdir ") . shellescape(name)
 
   silent! call system(cmd)
   silent! call fm#render()
@@ -437,7 +437,7 @@ endfunction
 " Delete a file/directory {{{
 function! fm#delete() abort
 
-  let line = join(map(fm#get_items(), 'fnameescape(v:val)'), " ")
+  let line = join(map(fm#get_items(), 'shellescape(v:val)'), " ")
 
   if line == ''
     call fm#error("Nothing to delete!")

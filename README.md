@@ -105,7 +105,7 @@ Returns a list of the selected items. If there are none, it will return a list c
 
 ```vim
 function! Trash()
-  let items = join(map(fm#get_items(), 'fnameescape(v:val)'), " ")
+  let items = join(map(fm#get_items(), 'shellescape(v:val)'), " ")
   let cmd = "mv " . items . " ~/Trash" " Let '~/Trash' be the trash directory
 
   silent! call system(cmd)
