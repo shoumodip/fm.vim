@@ -155,7 +155,7 @@ function! fm#set_cursor() abort
     " Position the cursor on the item it was present on the previous time, if
     " it still exists
     silent! call setpos(".", [0, 2, 1, 0])
-    let position = search(b:fm_history[b:fm_current_dir], "cW")
+    let position = search('^' . b:fm_history[b:fm_current_dir], "cW")
 
     if position == -1
       silent! call setpos(".", [0, 1, 1, 0])
