@@ -108,7 +108,7 @@ endfunction
 function! fm#set_name() abort
 
   " Make the buffer name the current directory
-  execute "file " . b:fm_current_dir
+  execute "keepalt file " . b:fm_current_dir
 
   return ""
 endfunction
@@ -616,14 +616,15 @@ endfunction
 " }}}
 " Close Fm {{{
 function! fm#close() abort
-  execute "bdelete!"
+  buffer#
+  bdelete!#
 
   return ""
 endfunction
 " }}}
 " Edit a file {{{
 function! fm#edit(file) abort
-  execute "edit " . a:file
+  execute "keepalt edit " . a:file
 
   return ""
 endfunction
@@ -720,7 +721,7 @@ function! fm#start() abort
   " directory of the current buffer, or the current buffer itself. Depends on
   " whether the current buffer is a directory or not.
   if isdirectory(resolve(expand("%:p")))
-    execute "edit " . expand("%:p")
+    execute "keepalt edit " . expand("%:p")
 
     " Just accept that this works lol. I don't remember what I did here
 
@@ -728,7 +729,7 @@ function! fm#start() abort
     let b:fm_current_dir = strpart(path, 0, strlen(path) - 1)
   else
 
-    execute "edit " . expand("%:p:h")
+    execute "keepalt edit " . expand("%:p:h")
     let b:fm_current_dir = substitute(expand("%:p"), '/$', "", "g")
   endif
 
