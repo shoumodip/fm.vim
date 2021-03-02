@@ -37,12 +37,12 @@ function! s:HL(name, link)
   return 1
 endfunction
 
+call s:HL("fmPrompt", "Function")
 call s:HL("fmDirectory", "fmPrompt")
 call s:HL("fmExecutable", "String")
 call s:HL("fmLink", "Operator")
 call s:HL("fmCurrent", "Operator")
 call s:HL("fmSelected", "Visual")
-call s:HL("fmPrompt", "Function")
 " }}}
 " NOOOOOO you have to use Netrw! Haha Fm go brrrrrr! {{{
 " Netrw sucks hahaha!
