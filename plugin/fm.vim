@@ -1,7 +1,6 @@
-if exists('g:loaded_fm')
+if exists("g:loaded_fm")
   finish
 endif
-let g:loaded_fm = 1
 
 " Fm variables {{{
 let g:fm#ls_opts = "--group-directories-first -Fv"
@@ -29,24 +28,36 @@ let g:fm#keys = {
       \ }
 " }}}
 " Highlight groups {{{
-highlight! link fmDirectory fmPrompt
-highlight! link fmExecutable String
-highlight! link fmLink Operator
-highlight! link fmCurrent Operator
-highlight! link fmSelected Visual
-highlight! link fmPrompt Function
+"
+function! s:HL(name, link)
+  if !hlexists(a:name)
+    execute "highlight! link ".a:name." ".a:link
+  endif
+
+  return 1
+endfunction
+
+call s:HL("fmDirectory", "fmPrompt")
+call s:HL("fmExecutable", "String")
+call s:HL("fmLink", "Operator")
+call s:HL("fmCurrent", "Operator")
+call s:HL("fmSelected", "Visual")
+call s:HL("fmPrompt", "Function")
 " }}}
 " NOOOOOO you have to use Netrw! Haha Fm go brrrrrr! {{{
 " Netrw sucks hahaha!
-let g:loaded_netrwPlugin = 1
-
-command! Explore call fm#start()
-command! Vexplore wincmd v | Explore
-command! Sexplore wincmd s | Explore
-command! Texplore tab split | Explore
+let g:loaded_netrwPlugin = 69
 
 augroup fm_for_the_win
   autocmd!
   autocmd BufEnter * if isdirectory(resolve(expand("%:p"))) | call fm#start() | endif
 augroup END
+
+" Replace the netrw commands with fm commands
+command! Explore call fm#start()
+command! Vexplore wincmd v | Explore
+command! Sexplore wincmd s | Explore
+command! Texplore tab split | Explore
 " }}}
+
+let g:loaded_fm = 69
