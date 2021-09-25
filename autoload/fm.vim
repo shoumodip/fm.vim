@@ -1,764 +1,692 @@
-" Abstract function for showing error messages {{{
-function! fm#error(msg) abort
-  echohl ErrorMsg
-  echo a:msg
+" The command line options passed to ls while setting up the Fm buffer.
+let g:fm#ls_arguments = "-vp --group-directories-first"
+
+" Whether dotfiles will be kept hidden.
+let g:fm#hidden = v:false
+
+" Prompt the user for a input string.
+" This is just a pretty and CTRL-c handling wrapper around input()
+" See `:h input()` and `:h completion()` for more information
+"
+" @param prompt The input prompt
+" @opt-param text The initial text, defaults to the current directory
+" @opt-param completion The completion system used, defaults to `file`
+" @return The input string
+function! fm#prompt(prompt, ...)
+  echohl FmPrompt
+  try
+    let text = exists("a:1") ? a:1 : substitute(bufname(), " \\*popup\\*$", "", "")
+    let completion = exists("a:2") ? a:2 : "file"
+    let input = input(a:prompt . ": ", text, completion)
+  catch
+    let input = ""
+  endtry
   echohl Normal
 
-  return ""
-endfunction
-" }}}
-" Abstract function for handling prompts {{{
-function! fm#prompt(msg, ...) abort
-
-  echohl fmPrompt
-
-  " If the optional second argument is 'truthy', only take a single character
-  " as input, else take an entire string
-  if exists("a:2") && a:2
-    echo a:msg
-    let input = nr2char(getchar())
-  else
-
-    " This is a file manager, therefore the completions offered should be
-    " relevant
-    let input = input(a:msg, exists("a:1") ? a:1 : "", "file")
-  endif
-
-  echohl Normal
   mode
-
   return input
 endfunction
-" }}}
-" Abstract function for doing yes-no prompts {{{
-function! fm#confirm(msg) abort
 
-  " No confirmation setting
-  if ! b:fm_require_confirm
-    return "y"
-  endif
+" Confirm an `yes-or-no` question from the user case insensitively.
+" This will keep fetching characters till it receives a 'y' or a 'n'
+"
+" @param prompt The input prompt
+" @return Whether the user confirmed with 'Y' or 'y'
+function! fm#confirm(prompt)
+  echohl FmPrompt
+  echon a:prompt . "? (y or n) "
+  echohl Normal
 
-  " Non-blank input at first, as user press ESC and cancel the confirmation
-  let input = " "
+  while v:true
+    try
+      let choice = nr2char(getchar())
+    catch
+      let choice = "n"
+    endtry
 
-  " Loop till the user enters either ESC, y, Y, n or N
-  while input !~? '\(^$\|y\|n\)'
-    let input = fm#prompt(a:msg . "? (y or n) ", "", 1)
-
-    " User has pressed ESC, set the input to blank
-    if input == ''
-      let input = ""
+    if choice ==? "y" || choice ==? "n"
+      mode
+      return choice ==? "y"
     endif
   endwhile
-
-  return input
 endfunction
-" }}}
-" Get selected items or the current item if there aren't any {{{
-function! fm#get_items() abort
-  let items = []
 
-  " Get all the selected items in a list instead of a per-directory basis
-  for [key, value] in items(b:fm_selected)
-    let key = substitute(key, '[@*=>|/]$', "", "")
-    let key = substitute(key, '"', '\"', "g")
-
-    let value = map(copy(value), '"' . key . '/' . '" . v:val')
-    call extend(items, value)
-  endfor
-
-  " Check if items have not been selected
-  if empty(items)
-    if getline(".") == ''
-      return ['']
+" Get the items under the cursor according to the count used.
+" 
+" @return The list of items
+function! fm#items()
+  if &l:filetype ==# "fm"
+    if line("$") == 1
+      return []
+    else
+      let start = getpos(".")[1]
+      let count = max([v:count - 1, 0])
+      return getline(start, start + count)
     endif
+  endif
+endfunction
 
-    " Pass on the current item as the selected item
-    let items = b:fm_current_dir . "/" . getline(".")
-    let items = [substitute(items, '[@*=>|/]$', "", "")]
+" Mark/unmark an item.
+"
+" Examples:
+"   x    Mark/unmark the item under the cursor
+"   69x  Mark/unmark 69 items under the cursor
+function! fm#mark()
+  if &l:filetype !=# "fm"
+    return
   endif
 
-  return items
-endfunction
-" }}}
-" Refresh Fm {{{
-function! fm#refresh() abort
-  let line = line(".")
+  let items = fm#items()
+  let mark_list = b:fm_mark_list[bufname()]
 
-  silent! call fm#render()
-  execute "normal! " . line . "G"
+  for item in items
+    let index = index(mark_list, item)
+    let item_escaped = substitute(item, "'", "\\\\'", "g")
 
-  return ""
-endfunction
-" }}}
-" Highlight the selected items {{{
-function! fm#draw_selects() abort
-  syntax clear fmSelected
+    if index == -1
+      call add(mark_list, item)
 
-  " Go through all the items in the current directory selection list and
-  " highlight them as being selected
-  for item in b:fm_selected[b:fm_current_dir]
-    execute "syntax match fmSelected '^" . substitute(substitute(item, "'", "\\\\'", "g"), '*$', '\\*', "") . "$'"
+      if item[len(item) - 1] == "/"
+        execute "syntax match FmMarked '^" . item_escaped . "$'he=e-1"
+      else
+        execute "syntax match FmMarked '^" . item_escaped . "$'"
+      endif
+    else
+      call remove(mark_list, index)
+
+      if item[len(item) - 1] == "/"
+        execute "syntax match FmFolder '" . item_escaped . "'he=e-1"
+      else
+        execute "syntax match Normal '" . item_escaped . "'"
+      endif
+    endif
   endfor
 
-  return ""
+  execute "normal! " . len(items) . "j"
 endfunction
-" }}}
-" Set the buffer name according to the current directory {{{
-function! fm#set_name() abort
 
-  " Make the buffer name the current directory
-  execute "keepalt file " . b:fm_current_dir
-
-  return ""
-endfunction
-" }}}
-" Position the cursor on the previous cursor position {{{
-function! fm#set_cursor() abort
-
-  " Check if the directory has been visited before
-  if has_key(b:fm_history, b:fm_current_dir)
-
-    " Position the cursor on the item it was present on the previous time, if
-    " it still exists
-    silent! call setpos(".", [0, 2, 1, 0])
-    let position = search('^' . b:fm_history[b:fm_current_dir], "cW")
-
-    if position == -1
-      silent! call setpos(".", [0, 1, 1, 0])
+" Unmark everything in the current directory or globally.
+"
+" @param global Whether the unmarking takes place globally
+function! fm#clear_marks(global)
+  if &l:filetype ==# "fm"
+    if a:global
+      for dirname in keys(b:fm_mark_list)
+        let b:fm_mark_list[dirname] = []
+      endfor
+    else
+      let b:fm_mark_list[bufname()] = []
     endif
+  endif
+endfunction
 
+" Toggle the marks in the current directory.
+" The unmarked items get marked, while the marked items get unmarked
+function! fm#toggle()
+  if &l:filetype ==# "fm"
+    for item in getline(2, "$")
+      let mark_list = b:fm_mark_list[bufname()]
+      let index = index(mark_list, item)
+
+      if index == -1
+        call add(mark_list, item)
+      else
+        call remove(mark_list, index)
+      endif
+    endfor
+
+    call fm#load()
+  endif
+endfunction
+
+" Get the list of selected items.
+"
+" Logic:
+"   - Marked items in the current directory                   => return them
+"   - Marked items in another directory and global mode is on => return them
+"   - There are items under the cursor                        => return them
+"   - Nothing                                                 => return []
+"
+" @opt-param global Turn on global mode
+" @return The list of selected items
+function! fm#selected(...)
+  if &l:filetype !=# "fm"
+    return
+  endif
+
+  let global = exists("a:1") ? a:1 : v:false
+
+  if global
+    let mark_list = []
+
+    for [dirname, items] in items(b:fm_mark_list)
+      let mark_list += map(copy(items), {_, item -> dirname . item})
+    endfor
   else
-
-    " Place the cursor on the second line of the file
-    silent! call setpos(".", [0, 2, 1, 0])
+    let mark_list = map(copy(b:fm_mark_list[bufname()]), {_, item -> bufname() . item})
   endif
 
-  return ""
+  if len(mark_list)
+    return mark_list
+  elseif line("$") == 1
+    return []
+  else
+    return map(fm#items(), {_, item -> bufname() . item})
+  endif
 endfunction
-" }}}
-" Render the file manager {{{
-function! fm#render() abort
 
-  " Don't attempt to render the directory if it doesn't exist
-  if !isdirectory(b:fm_current_dir)
-    call fm#error("Error: directory '" . b:fm_current_dir . "' does not exist!")
-    return ""
+" Apply POSIX shell escaping to a list of items.
+" Use this if the items are being operated on by shell commands, as without
+" proper escaping of specific characters, errors might occur
+"
+" @return The escaped items
+function! fm#escape(items)
+  return map(copy(a:items), {_, item -> shellescape(resolve(item))})
+endfunction
+
+" Get the selected items, with escaping performed
+"
+" @return The list of escaped selected items
+function! fm#selected_escaped(...)
+  if exists("a:1")
+    return fm#escape(fm#selected(a:1))
+  else
+    return fm#escape(fm#selected())
+  endif
+endfunction
+
+" Enter into a specific item
+"
+" @param item The item to enter into, defaults to the item under the cursor
+function! fm#enter(...)
+  if &l:filetype ==# "fm"
+    if exists("a:1")
+      call fm#open(bufname() . a:1)
+    elseif line("$") > 1
+      call fm#open(bufname() . getline("."))
+    endif
+  endif
+endfunction
+
+" Turn on edit mode in the current Fm buffer
+function! fm#edit_start()
+  if &l:filetype !=# "fm"
+    return
   endif
 
-  " Generate the list of files and directories
-  let cmd = "ls " . (b:fm_show_hidden ? "-A " : "")
-  let cmd = cmd . b:fm_ls_opts . " " . shellescape(b:fm_current_dir)
+  let items = getline(2, "$")
+  if len(items) == 0
+    echo "Cannot open an edit buffer on an empty directory\n"
+  else
+    execute "edit " . bufname() . " *edit*"
+    setlocal buftype=nofile
+    setlocal filetype=fmedit
+
+    let b:fm_edit_init = items
+
+    syntax clear
+    syntax match FmFolder ".*/$"he=e-1
+
+    call setline(1, items)
+
+    nnoremap <buffer> <nowait> <silent> ZZ :<c-u>call fm#edit_write()<cr><c-l>
+    nnoremap <buffer> <nowait> <silent> ZQ :<c-u>call fm#edit_abort()<cr><c-l>
+
+    echo "Press ZZ to write and ZQ to abort changes"
+  endif
+endfunction
+
+" Abort the changes in the current Fm edit buffer
+function! fm#edit_abort()
+  if &l:filetype ==# "fmedit"
+    bdelete!
+  endif
+endfunction
+
+" Write the changes in the current Fm edit buffer
+function! fm#edit_write()
+  if &l:filetype !=# "fmedit"
+    return
+  endif
+
+  let bufname = substitute(bufname(), " \\*edit\\*$", "", "")
+  let edit_final = getline(1, "$")
+
+  if len(b:fm_edit_init) != len(edit_final)
+    echo "The number of final items must match the number of initial ones\n"
+  else
+    for i in range(0, len(b:fm_edit_init) - 1)
+      if b:fm_edit_init[i] != edit_final[i]
+        let initial = shellescape(bufname . b:fm_edit_init[i])
+        let final = shellescape(bufname . edit_final[i])
+        call system("mv " . initial . " " . final)
+      endif
+    endfor
+
+    call fm#edit_abort()
+    call fm#load()
+  endif
+endfunction
+
+" Toggle the display of hidden items in the current Fm buffer
+function! fm#toggle_hidden()
+  if &l:filetype ==# "fm"
+    let b:fm_hidden = !b:fm_hidden
+    call fm#load()
+  endif
+endfunction
+
+" Load the current Fm buffer from the filesystem
+function! fm#load()
+  if &l:filetype !=# "fm"
+    return
+  endif
+
+  let path = bufname()
+
+  if !isdirectory(bufname())
+    if fm#confirm("Invalid Fm buffer. Delete it")
+      bdelete!
+    endif
+    return
+  endif
+
+  let command = "ls " . b:fm_ls_arguments . (b:fm_hidden ? " " : " -A ")
+  let items = systemlist(command . shellescape(path))
+
+  let line = line(".")
 
   setlocal modifiable
-
-  " Render it
-  silent! call setline(1, b:fm_current_dir)
-  silent! call deletebufline(bufnr(), 2, "$")
-  silent! call setline(2, systemlist(cmd))
-
-  " Add an empty line if there are no items
-  if line("$") == 1
-    silent! call append(1, "")
-
-
-  else
-
-    " Highlight the selected items in the directory
-    silent! call fm#draw_selects()
-  endif
-
+  silent! normal! gg"_dG
+  call setline(1, [path] + items)
   setlocal nomodifiable
 
-  " Position the cursor
-  silent! call fm#set_cursor()
-
-  return ""
-endfunction
-" }}}
-" Correct the cursor position if necessary {{{
-function! fm#cursor_correct() abort
-
-  let line = line(".")
-
-  " Don't let the cursor go to the first line
-  if line < 2
-    let line = 2
+  if has_key(b:fm_line_list, bufname())
+    execute "normal! " . b:fm_line_list[bufname()] . "G"
+  else
+    execute "normal! " . line . "G"
   endif
+  normal! 0
 
-  " Keep the cursor at the first column because I like it that way
-  silent! call setpos(".", [0, line, 1, 0])
+  syntax clear
+  syntax match FmFolder ".*/$"he=e-1
 
-  return ""
-endfunction
-" }}}
-" Toggle the selection of an item {{{
-function! fm#toggle() abort
+  for item in b:fm_mark_list[bufname()]
+    let item_escaped = substitute(item, "'", "\\\\'", "g")
 
-  " Get the item
-  let item = getline(".")
-
-  " Check if the directory contains selections
-  if has_key(b:fm_selected, b:fm_current_dir)
-
-    " The hypothetical index of the item in the selection list
-    let index = index(b:fm_selected[b:fm_current_dir], item)
-
-    " Check if the hypothetical index is in fact false
-    if index == -1
-
-      " The item is not selected, select it
-      call add(b:fm_selected[b:fm_current_dir], item)
+    if item[len(item) - 1] == "/"
+      execute "syntax match FmMarked '^" . item_escaped . "$'he=e-1"
     else
-
-      " The item is selected, 'de-select' it
-      call remove(b:fm_selected[b:fm_current_dir], index)
+      execute "syntax match FmMarked '^" . item_escaped . "$'"
     endif
-  else
-
-    " The selection list does not exist for this directory, generate it by
-    " making the current item the only item in the selection list of the
-    " current directory
-    let b:fm_selected[b:fm_current_dir] = [item]
-  endif
-
-  " Go down a line
-  normal! j
-  silent! call fm#draw_selects()
-
-  return ""
-endfunction
-" }}}
-" Toggle the selection of everything in the current directory {{{
-function! fm#toggle_all() abort
-
-  " Check if the current directory has a selection list and the number of
-  " items is equal to the number of lines in the buffer
-  if has_key(b:fm_selected, b:fm_current_dir) && len(b:fm_selected[b:fm_current_dir]) == line("$") - 1
-
-    " De-select everything
-    let b:fm_selected[b:fm_current_dir] = []
-  else
-
-    " Select everything
-    let b:fm_selected[b:fm_current_dir] = getline(2, "$")
-  endif
-
-  " Redraw the selections
-  silent! call fm#draw_selects()
-
-  return ""
-endfunction
-" }}}
-" Toggle show hidden {{{
-function! fm#toggle_hidden() abort
-
-  " The current selected item
-  let b:fm_history[b:fm_current_dir] = getline(".")
-
-  " Toggle show hidden state
-  if b:fm_show_hidden
-    let b:fm_show_hidden = 0
-  else
-    let b:fm_show_hidden = 1
-  endif
-
-  " Refresh the buffer
-  silent! call fm#render()
-  return ""
-endfunction
-" }}}
-" Rename a file/directory {{{
-function! fm#rename(...) abort
-
-  let item = getline(".")
-
-  " Check if the current line is blank (an empty directory)
-  if empty(item)
-    call fm#error("Nothing to rename!")
-    return ""
-  endif
-
-  " The present name of the item
-  let old_name = substitute(item, '[@*=>|/]$', "", "")
-  let old_name = b:fm_current_dir . "/" . old_name
-
-  " Get the new name from the user
-  if exists("a:1") && !empty(a:1)
-    let new_name = (empty(matchstr(a:1, "/")) ? b:fm_current_dir . "/" : "") . a:1
-  else
-    let new_name = fm#prompt("New name: ", old_name)
-  endif
-
-  " User pressed ESC or whatever
-  if empty(new_name)
-    return ""
-  endif
-
-  let cmd = "mv " . shellescape(old_name) . " " . shellescape(new_name)
-
-  " Check if a file/directory with that name exist already
-  if !empty(glob(b:fm_current_dir . "/" . new_name))
-
-    " Ask for confirmation
-    let choice = fm#confirm("A file/directory with that name exists already. Overwrite")
-
-    " User confirmed overwrite, delete it
-    if choice ==? "y"
-      silent! call system("rm -rf " . shellescape(new_name))
-    else
-      return ""
-    endif
-
-  endif
-
-  " Rename the item
-  silent! call system(cmd)
-  silent! call fm#render()
-
-  " Move the cursor to the item
-  let b:fm_current_dir = fnamemodify(new_name, ":h")
-  let new_name = substitute(new_name, '/$', "", "")
-  let new_name = substitute(new_name, '.*/', "", "")
-
-  silent! call fm#render()
-  silent! call search(new_name, "cW")
-
-  return ""
-endfunction
-" }}}
-" Create a new file/directory {{{
-function! fm#new(type, ...) abort
-
-  " The name of the item
-  if exists("a:1") && !empty(a:1)
-    let name = (empty(matchstr(a:1, "/")) ? b:fm_current_dir . "/" : "") . a:1
-  else
-    let name = fm#prompt("Create " . a:type . ": ", b:fm_current_dir . "/")
-  endif
-
-  " User pressed ESC or whatever
-  if empty(name)
-    return ""
-  endif
-
-  " Get rid of the '/' at the end because I'm paranoid
-  let name = substitute(name, '/$', "", "")
-
-  " Check if the file exists already
-  if !empty(glob(name))
-
-    " Ask for confirmation
-    let choice = fm#confirm("A " . a:type . " with that name exists already. Overwrite")
-
-    if choice ==? "y"
-
-      " It was at this moment that the file knew, it f**ked up
-      silent! call system("rm -rf " . shellescape(name))
-    else
-      return ""
-    endif
-  endif
-
-  " Rant time: Whenever I want to create a file, I want the parent directories
-  " to just pop into existence if needed, you know. Not a SINGLE file manager
-  " I have ever used have this feature, and it drives me nuts. Like let's say
-  " I want to create a file and the parent directory doesn't exist. The file
-  " manager is like 'Lol nope!'. Then I have to manually create the
-  " directories leading up to the file and THEN create the file. It's SOOOOO
-  " annoying. Therefore this file manager is smarter. If the parent directory
-  " doesn't exist, it will simply ask you for confirmation if you want to
-  " create them. And even that depends on the `g:fm#require_confirm` variable
-  " being 'truthy'. If it's not, it won't even bother to ask, the directory
-  " will just automatically be created without asking the user.
-  let file_parent_dir = fnamemodify(name, ":h")
-
-  " Check if the parent directory is non-existant
-  if !isdirectory(file_parent_dir)
-
-    " Ask for confirmation
-    let choice = fm#confirm("Parent directory does not exist. Create it")
-
-    " And the Lord said, 'Let there be parent directories'
-    if choice ==? "y"
-      silent! call mkdir(file_parent_dir, "p")
-    else
-      return ""
-    endif
-  endif
-
-  " Focus the new item after creating it
-  let b:fm_history[b:fm_current_dir] = fnamemodify(name, ":p:h:t")
-
-  let file_name = fnamemodify(name, ":p:t")
-  let b:fm_current_dir = file_parent_dir
-  let cmd = (a:type ==# "file" ? "> " : "mkdir ") . shellescape(name)
-
-  silent! call system(cmd)
-  silent! call fm#render()
-  silent! call search(file_name, "cW")
-
-  return ""
-endfunction
-" }}}
-" Delete a file/directory {{{
-function! fm#delete() abort
-
-  let line = join(map(fm#get_items(), 'shellescape(v:val)'), " ")
-
-  if line == ''
-    call fm#error("Nothing to delete!")
-    return ""
-  endif
-
-  let choice = fm#confirm("Confirm delete")
-
-  let cur_line = line(".") - 1
-
-  if choice ==? "y"
-    let cmd = "rm -rf " . line
-    silent! call system(cmd)
-    silent! call fm#render()
-
-    " Delete always gives priority to the selected items, therefore this is
-    " perfectly safe code. It won't randomly remove user selections. Checkmate
-    " rustaceans.
-    silent! call remove(b:fm_selected, b:fm_current_dir)
-    silent! call fm#draw_selects()
-
-    execute "normal! " . cur_line . "G"
-  endif
-
-  return ""
-endfunction
-" }}}
-" Perform actions on items {{{
-function! fm#action(...) abort
-
-  " There are two optional arguments to this function. The first argument is
-  " the text present at the front of the `:` prompt. The second argument is
-  " the key pressed to move the cursor or whatever. Not the key notation
-  " follows the feedkeys() notation and NOT 'key-notation'
-
-  let line = join(fm#get_items(), " ")
-
-  if line == ''
-    call fm#error("Nothing to apply action on!")
-    return ""
-  endif
-
-  let keys = ":" . (exists("a:1") ? a:1 : " ") . line
-  let keys .= exists("a:2") ? a:2 : "\<Home>"
-
-  call feedkeys(keys, "n")
-
-  return ""
-endfunction
-" }}}
-" Move or copy an item to a directory {{{
-function! fm#move(...) abort
-  let line = join(fm#get_items(), " ")
-
-  " The 'anchor' to focus on after moving the item(s)
-  if has_key(b:fm_selected, b:fm_current_dir) && len(b:fm_selected[b:fm_current_dir]) > 0
-    let anchor = b:fm_selected[b:fm_current_dir][0]
-  else
-    let anchor = getline(".")
-  endif
-
-  if line == ''
-    call fm#error("Nothing to " . (exists("a:1") && a:1 ? "copy" : "move") . "!")
-    return ""
-  endif
-
-  if exists("a:2") && !empty(a:2)
-    let dir = (empty(matchstr(a:2, "/")) ? b:fm_current_dir . "/" : "") . a:2
-  else
-    let prompt = (exists("a:1") && a:1 ? "Copy" : "Move") . " to: "
-    let item = substitute(b:fm_current_dir, '/$', "", "g") . "/"
-    let dir = fm#prompt(prompt, item)
-  endif
-
-  if empty(dir)
-    return ""
-  endif
-
-  let dir = substitute(dir, '/$', "", "g")
-
-  " Check if the directory is even valid
-  if isdirectory(dir)
-    let cmd = (exists("a:1") && a:1 ? "cp -r" : "mv") . " -f " . line . " " . dir . "/"
-
-    silent! call system(cmd)
-    let b:fm_current_dir = dir
-    let b:fm_history[b:fm_current_dir] = anchor
-
-    silent! call fm#render()
-  else
-    call fm#error("Error: invalid directory!")
-  endif
-
-  return ""
-endfunction
-" }}}
-" Start edit mode {{{
-function! fm#edit_start() abort
-
-  let buffer = bufnr()
-
-  " Something I REALLY admire about Emacs' `dired-mode'. One can just go into
-  " this 'edit mode' and make changes and upon saving them, the file structure
-  " gets changed. The idea is amazing, because that way we get to use the sane
-  " keybindings of our favourite editor (checkmate, Emacs!) to manipulate the
-  " file structure.
-
-  if getbufline(buffer, "$")[0] ==# ''
-    call fm#error("Nothing to edit!")
-    return ""
-  endif
-
-  " Copy over the file structure to the edit buffer
-  let text = getline(2, "$")
-  let line = line(".") - 1
-
-  let edit_buffer_name = fnamemodify(b:fm_current_dir, ":t")
-  execute "edit ~/.cache/fm_edit" . buffer . " - " . edit_buffer_name . " - Edit"
-
-  let b:fm_edit_target = buffer
-  let edit_buffer = bufnr()
-
-  silent! call append(1, text)
-  silent! call deletebufline(bufnr(), 1, 1)
-
-  " A limitation of edit mode. I couldn't figure out a way to make sure that
-  " the files are renamed as they should be, so this is a way around it.
-  " Basically if the number of lines before and after edit mode don't match
-  " up, some lines are missing! In that case scream at the user and insult
-  " him/her in order to assert maximum intellectual dominance. (lol)
-  let b:fm_edit_total_lines = line("$")
-
-  autocmd BufWritePost <buffer> call fm#edit_save()
-  nnoremap <buffer> <silent> <C-c> :call fm#edit_close()<CR>
-  silent! %s/[@*=>|\/]$//e
-
-  setlocal nomodified
-  execute "normal! " . line . "G"
-
-  return ""
-endfunction
-" }}}
-" Close the edit buffer {{{
-function! fm#edit_close() abort
-
-  let edit_buffer = bufnr()
-
-  let target = fnamemodify(b:fm_edit_target, ":t")
-  let edit_name = bufname()
-
-  let line = line(".") + 1
-
-  " This is a weird behaviour in Vim. Whenever I delete the buffer in a split,
-  " the entire split gets closed, even though some buffers were being edited
-  " from it. The buffers don't get deleted, it's just that the split pops out
-  " of existence
-  silent! execute "buffer " . b:fm_edit_target
-  silent! execute "bdelete! " . edit_buffer
-  silent! call delete(edit_name)
-
-  silent! execute "normal! " . line . "G"
-  return ""
-endfunction
-" }}}
-" Save the changes made in edit mode {{{
-function! fm#edit_save() abort
-
-  if !exists("b:fm_edit_total_lines")
-    return ""
-  endif
-
-  " THOU SHALT NOT DELETE ITEMS IN EDIT MODE!!!
-  if line("$") != b:fm_edit_total_lines
-    silent! call fm#close_edit()
-    call fm#error("Some lines are missing! Can't save changes")
-    return ""
-  endif
-
-  let text = getline(0, "$")
-  let cur_line = line(".") + 1
-  let cmd = ""
-
-  " Get the changes made to the file structure
-  let dir = getbufvar(b:fm_edit_target, "fm_current_dir") . "/"
-  let counter = 2
-
-  for line in text
-
-    let item = getbufline(b:fm_edit_target, counter)[0]
-    let item = substitute(item, '[@*=>|/]$', "", "")
-
-    if item !=# line
-      let cmd .= "mv " . shellescape(dir . item) . " " . shellescape(dir . line) . "; "
-    endif
-
-    let counter += 1
   endfor
 
-  " Apply the changes made to the file structure
-  silent! call system(cmd)
-
-  " Get rid of the edit buffer and render
-  silent! call fm#edit_close()
-  silent! call fm#render()
-
-  silent! execute "normal! " . cur_line . "G"
-  return ""
+  syntax match FmHeader "\%1l.*"
 endfunction
-" }}}
-" Close Fm {{{
-function! fm#close() abort
-  buffer#
-  bdelete!#
 
-  return ""
+" The buffer local mappings in the Fm buffer
+function! fm#mappings()
+  nnoremap <buffer> <nowait> <silent> d  :<c-u>call fm#mkdir()<cr>
+  nnoremap <buffer> <nowait> <silent> f  :<c-u>call fm#touch()<cr>
+
+  nnoremap <buffer> <nowait> <silent> D  :<c-u>call fm#delete()<cr>
+  nnoremap <buffer> <nowait> <silent> R  :<c-u>call fm#rename()<cr>
+  nnoremap <buffer> <nowait> <silent> gD :<c-u>call fm#delete(v:true)<cr>
+  nnoremap <buffer> <nowait> <silent> gR :<c-u>call fm#rename(v:true)<cr>
+
+  nnoremap <buffer> <nowait> <silent> c  :<c-u>call fm#move(v:false, "", v:true)<cr>
+  nnoremap <buffer> <nowait> <silent> m  :<c-u>call fm#move()<cr>
+  nnoremap <buffer> <nowait> <silent> gc :<c-u>call fm#move(v:true, "", v:true)<cr>
+  nnoremap <buffer> <nowait> <silent> gm :<c-u>call fm#move(v:true)<cr>
+
+  nnoremap <buffer> <nowait> <silent> x  :<c-u>call fm#mark()<cr>
+  nnoremap <buffer> <nowait> <silent> X  :<c-u>call fm#toggle()<cr>
+
+  nnoremap <buffer> <nowait> <silent> p  :<c-u>call fm#permissions()<cr>
+  nnoremap <buffer> <nowait> <silent> gp :<c-u>call fm#permissions(v:true)<cr>
+  nnoremap <buffer> <nowait> <silent> s  :<c-u>call fm#shellcmd()<cr>
+  nnoremap <buffer> <nowait> <silent> gs :<c-u>call fm#shellcmd(v:true)<cr>
+
+  nnoremap <buffer> <nowait> <silent> l  :<c-u>call fm#enter()<cr>
+  nnoremap <buffer> <nowait> <silent> h  :<c-u>call fm#enter("..")<cr>
+  nnoremap <buffer> <nowait> <silent> i  :<c-u>call fm#edit_start()<cr>
+
+  nnoremap <buffer> <nowait> <silent> r  :<c-u>call fm#load()<cr>
+  nnoremap <buffer> <nowait> <silent> H  :<c-u>call fm#toggle_hidden()<cr>
+  nnoremap <buffer> <nowait> <silent> q  :<c-u>bdelete!<cr><c-l>
+
+  nnoremap <buffer> <nowait> <silent> j  j0
+  nnoremap <buffer> <nowait> <silent> k  k0
+  nnoremap <buffer> <nowait> <silent> gg 2G0
+
+  nnoremap <buffer> <nowait> <silent> <cr>  :<c-u>call fm#enter()<cr>
+  nnoremap <buffer> <nowait> <silent> <c-h> :<c-u>call fm#help()<cr>
 endfunction
-" }}}
-" Edit a file {{{
-function! fm#edit(file) abort
-  execute "keepalt edit " . a:file
 
-  return ""
-endfunction
-" }}}
-" Change the current directory of Fm {{{
-" NOTE: This does NOT change the current directory of Vim
-function! fm#change_dir(dir) abort
-
-  " Store the position of the cursor in the history so that on a subsequent
-  " return to it later in the SAME buffer, automatically position the cursor
-  let b:fm_history[b:fm_current_dir] = getline(".")
-  let b:fm_current_dir = substitute(a:dir, '^//', "/", "g")
-
-  silent! call fm#set_name()
-  silent! call fm#render()
-
-  return ""
-endfunction
-" }}}
-" Open the current item. {{{
-function! fm#open(...) abort
-  let item = b:fm_current_dir . "/"
-
-  " Open the directory specified in the argument
-  " If no argument supplied open the file/directory under the cursor
+" Open an item from the filesystem into a Fm or a normal buffer
+"
+" @opt-param path The path, will ask the user if not supplied
+function! fm#open(...)
   if exists("a:1")
-    let item .= a:1
+    let path = a:1
   else
-    let item .= getline(".")
+    try
+      let path = fm#prompt("Open")
+      if len(path) == 0
+        return
+      endif
+    catch
+      return
+    endtry
   endif
 
-  " Get rid of the format characters generated by ls
-  let item = substitute(item, '[@*=>|]$', "", "g")
+  let path = resolve(fnamemodify(path, ":p"))
 
-  " Figure out the true path of the directory
-  let item = resolve(item)
-
-  " Do whatever is needed
-  if isdirectory(item)
-    call fm#change_dir(item)
-  elseif ! empty(glob(item))
-    call fm#edit(item)
-  else
-    call fm#error("Invalid directory or file: " . item)
+  if &l:filetype ==# "fm"
+    let b:fm_line_list[bufname()] = line(".")
   endif
 
-  return ""
-endfunction
-" }}}
-" Go back a directory and position the cursor {{{
-function! fm#up() abort
-
-  if b:fm_current_dir ==# '/'
-    return ""
+  if !isdirectory(path)
+    execute "edit " . path
+    return
   endif
 
-  " Focus on the directory we were just viewing, not the history or whatever
-  let tail = fnamemodify(b:fm_current_dir, ":t")
-  silent! call fm#open("..")
-
-  let b:fm_history[b:fm_current_dir] = tail
-  silent! call fm#set_cursor()
-
-  return ""
-endfunction
-" }}}
-" Generate the mappings for fm {{{
-function! fm#mappings() abort
-
-  for [key, mapping] in items(g:fm#keys)
-
-    " If the mapping doesn't end with a ')' add it to the end. Saves a bit of
-    " typing
-    if mapping !~? ')$'
-      let mapping = mapping . "()"
-    endif
-
-    execute "nnoremap <buffer> <nowait> <silent> " . key . " <Cmd>call " . mapping . "<CR>"
-  endfor
-
-  return ""
-endfunction
-" }}}
-" Start the file manager {{{
-function! fm#start() abort
-
-  if exists("b:fm_history")
-    return ""
+  if path[len(path) - 1] != "/"
+    let path .= "/"
   endif
 
-  " The real stuff
-
-  " Figure out whether the file manager should be opened in the parent
-  " directory of the current buffer, or the current buffer itself. Depends on
-  " whether the current buffer is a directory or not.
-  if isdirectory(resolve(expand("%:p")))
-    execute "keepalt edit " . expand("%:p")
-
-    " Just accept that this works lol. I don't remember what I did here
-
-    let path = expand("%:p")
-    let b:fm_current_dir = strpart(path, 0, strlen(path) - 1)
-  else
-
-    execute "keepalt edit " . expand("%:p:h")
-    let b:fm_current_dir = substitute(expand("%:p"), '/$', "", "g")
+  if &l:filetype !=# "fm"
+    execute "edit " . path
   endif
 
-  " The buffer level variables
-  let b:fm_history = {}
-  let b:fm_selected = {}
-  let b:fm_show_hidden = g:fm#show_hidden
-  let b:fm_ls_opts = g:fm#ls_opts
-  let b:fm_require_confirm = g:fm#require_confirm
+  execute "file " . path
+  normal! 2G0
 
-  " Important
+  autocmd CursorMoved <buffer> if line(".") == 1 | normal! 2G | endif
+  call fm#mappings()
+
   setlocal buftype=nofile
   setlocal nomodifiable
 
-  " Black and white is meh unless it's a movie (Even then it's kinda meh lol)
-  syntax match fmDirectory '.*/$'he=e-1
-  syntax match fmExecutable '.*\*$'he=e-1
-  syntax match fmLink '.*@$'he=e-1
-  syntax match fmCurrent '\%1l.*$'
+  if &l:filetype !=# "fm"
+    setlocal filetype=fm
+    let b:fm_mark_list = {bufname(): []}
+    let b:fm_line_list = {bufname(): 2}
+    let b:fm_hidden = g:fm#hidden
+    let b:fm_ls_arguments = g:fm#ls_arguments
+  endif
 
-  " Generate mappings
-  silent! call fm#mappings()
+  if !has_key(b:fm_mark_list, bufname())
+    let b:fm_mark_list[bufname()] = []
+  endif
 
-  " Prevent weird cursor movements. Muhahahahahahahaha!
-  autocmd CursorMoved <buffer> call fm#cursor_correct()
-
-  " Boom
-  silent! call fm#render()
-  silent! call fm#set_name()
-  return ""
+  call fm#load()
 endfunction
-" }}}
+
+" Create a directory, wrapper around UNIX `mkdir`.
+"
+" @opt-param directory The directory name, will ask user if not supplied
+function! fm#mkdir(...)
+  if &l:filetype ==# "fm"
+    let directory = exists("a:1") ? a:1 : fm#prompt("Directory")
+    if len(directory) > 0
+      let dirname = fnamemodify(directory, ":h")
+
+      call system("mkdir -p " . shellescape(directory))
+      call fm#open(dirname, v:true)
+      call search(fnamemodify(directory, ":t"), "cw")
+    endif
+  endif
+endfunction
+
+" Create a file, wrapper around UNIX `touch`.
+"
+" @opt-param file The file name, will ask user if not supplied
+function! fm#touch(...)
+  if &l:filetype ==# "fm"
+    let file = exists("a:1") ? a:1 : fm#prompt("File")
+    if len(file) > 0
+      let dirname = fnamemodify(file, ":h")
+
+      call system("mkdir -p " . shellescape(dirname))
+      call system("touch " . shellescape(file))
+      call fm#open(dirname, v:true)
+      call search(fnamemodify(file, ":t"), "cw")
+    endif
+  endif
+endfunction
+
+" Change the permissions of the selected items, wrapper around UNIX `chmod`.
+"
+" @opt-param global Whether it should be done globally
+" @opt-param perms The permissions, takes sequential input if exhausted
+function! fm#permissions(...)
+  if &l:filetype !=# "fm"
+    return
+  endif
+
+  let global = exists("a:1") ? a:1 : v:false
+  let perms = exists("a:2") ? a:2 : []
+  let items = fm#selected(global)
+
+  for i in range(0, len(items) - 1)
+    let item = items[i]
+    let readable = filereadable(item) ? "+r" : "-r"
+    let writable = filewritable(item) ? "+w" : "-w"
+    let executable = executable(item) ? "+x" : "-x"
+
+    let initial = " [" . readable . "," . writable . "," . executable . "]"
+    let final = i < len(perms) ? perms[i] : fm#prompt("Change permissions of " . item . initial, "")
+
+    for change in split(final)
+      if change =~? "[+-][rwx]"
+        call system("chmod " . change . " " . shellescape(item))
+      else
+        echo "Invalid change specification '" . change . "'\n"
+        return
+      endif
+    endfor
+  endfor
+
+  call fm#clear_marks(global)
+  call fm#load()
+endfunction
+
+" Rename the selected items, wrapper around UNIX `mv`.
+"
+" @opt-param global Whether it should be done globally
+" @opt-param dests The destinations, takes sequential input if exhausted
+function! fm#rename(...)
+  if &l:filetype !=# "fm"
+    return
+  endif
+
+  let global = exists("a:1") ? a:1 : v:false
+  let dests = exists("a:2") ? a:2 : []
+  let items = fm#selected(global)
+
+  for i in range(0, len(items) - 1)
+    let item = items[i]
+    let dest = i < len(dests) ? dests[i] : fm#prompt("Rename " . item . " to", item)
+
+    if len(dest) > 0 && substitute(dest, "/$", "", "") != substitute(item, "/$", "", "")
+      let dirname = fnamemodify(dest, ":p")
+      call system("mkdir -p " . shellescape(dirname))
+      call system("mv " . shellescape(item) . " " . shellescape(dest))
+    endif
+  endfor
+
+  call fm#clear_marks(global)
+  call fm#load()
+endfunction
+
+" Move the selected items to a directory, wrapper around UNIX `mv` and `cp`.
+"
+" @opt-param global Whether it should be done globally
+" @opt-param dest The destination, input will be taken by default
+" @opt-param copy Whether the files should be copied instead of moved
+function! fm#move(...)
+  if &l:filetype !=# "fm"
+    return
+  endif
+
+  let global = exists("a:1") ? a:1 : v:false
+  let items = fm#selected_escaped(global)
+  let copy = exists("a:3") ? a:3 : v:false
+
+  if exists("a:2") && len(a:2) > 0
+    let dest = len(items) > 0 ? a:2 : ""
+  else
+    let prefix = copy ? "Copy " : "Move "
+    if len(items) == 1
+      let dest = fm#prompt(prefix . items[0] . " to")
+    elseif len(items) > 0
+      execute "split " . bufname() . " *popup*"
+      setlocal nonumber norelativenumber
+      setlocal buftype=nofile
+      call setline(1, items)
+
+      redraw
+      let dest = fm#prompt(prefix . len(items) . " items to")
+      bdelete!
+    else
+      let dest = ""
+    endif
+  endif
+
+  if len(dest) > 0
+    let dirname = fnamemodify(dest, ":p")
+    call system("mkdir -p " . shellescape(dirname))
+
+    let command = copy ? "cp -r" : "mv"
+    call system(command . " " . join(items, " ") . " " . shellescape(dest))
+    echo command . " " . join(items, " ") . " " . shellescape(dest)
+    call fm#clear_marks(global)
+    call fm#load()
+  endif
+endfunction
+
+" Delete the selected items, wrapper around UNIX `rm`.
+" The `rm` command removes permanently, proceed with caution
+"
+" @opt-param global Whether it should be done globally
+" @opt-param confirm Whether it is confirmed, user is asked by default
+function! fm#delete(...)
+  if &l:filetype !=# "fm"
+    return
+  endif
+
+  let global = exists("a:1") ? a:1 : v:false
+  let items = fm#selected_escaped(global)
+
+  if exists("a:2")
+    let confirm = a:2
+  else
+    if len(items) == 1
+      let confirm = fm#confirm("Delete " . items[0])
+    elseif len(items) > 0
+      execute "split " . bufname() . " *popup*"
+      setlocal nonumber norelativenumber
+      setlocal buftype=nofile
+      call setline(1, items)
+
+      redraw
+      let confirm = fm#confirm("Delete " . len(items) . " items")
+      bdelete!
+    else
+      let confirm = v:false
+    endif
+  endif
+
+  if confirm
+    call system("rm -rf " . join(items, " "))
+    call fm#clear_marks(global)
+    call fm#load()
+  endif
+endfunction
+
+" Run a shell command selected items and display the output.
+" If the output is can be fitted in the echo area, it is echoed, otherwise a
+" popup window is opened with the output
+"
+" @opt-param global Whether it should be done globally
+" @opt-param cmd The command, user is asked by default
+function! fm#shellcmd(...)
+  if &l:filetype !=# "fm"
+    return
+  endif
+
+  let global = exists("a:1") ? a:1 : v:false
+  let items = fm#selected_escaped(global)
+
+  if exists("a:2")
+    let cmd = len(items) > 0 ? a:2 : ""
+  else
+    if len(items) == 1
+      let cmd = fm#prompt("Run shell command on " . items[0], "", "shellcmd")
+    elseif len(items) > 0
+      execute "split " . bufname() . " *popup*"
+      setlocal nonumber norelativenumber
+      setlocal buftype=nofile
+      call setline(1, items)
+
+      redraw
+      let cmd = fm#prompt("Run shell command on " . len(items) . " items", "", "shellcmd")
+      bdelete!
+    else
+      let cmd = ""
+    endif
+  endif
+
+  if len(cmd) > 0
+    let output = systemlist(cmd . " " . join(items, " "))
+
+    call fm#clear_marks(global)
+    call fm#load()
+
+    if len(output) <= &cmdheight
+      echo output[0]
+    elseif len(output) > 0
+      execute "split " . bufname() . " *popup*"
+      setlocal nonumber norelativenumber
+      setlocal buftype=nofile
+      call setline(1, output)
+      setlocal nomodifiable
+
+      echo 'Press "q" to close this popup'
+      nnoremap <buffer> <nowait> <silent> q :<c-u>bdelete!<cr><c-l>
+    endif
+  endif
+endfunction
+
+function! fm#help()
+  split *fm help*
+  setlocal nonumber norelativenumber
+  setlocal buftype=nofile
+
+  let text  = ["   ======== Actions =========        ============ Others ============"]
+  let text += ["   (D) Delete                        (x)    Mark/unmark item"]
+  let text += ["   (R) Rename                        (X)    Toggle marks in directory"]
+  let text += ["   (c) Copy to a directory           (l)    Open item"]
+  let text += ["   (m) Move to a directory           (h)    Go up one directory"]
+  let text += ["   (p) Change permissions            (i)    Start edit mode"]
+  let text += ["   (s) Execute shell commands        (q)    Quit"]
+  let text += ["   (g) Run the next action globally  (gg)   Top of the buffer"]
+  let text += ["   (f) Create a file                 (<cr>) Open item"]
+  let text += ["   (d) Create a directory            (<bs>) Go up one directory"]
+  let text += [""]
+  let text += ["  Selected Items: The marked items or the items under the cursor"]
+  let text += ["  Action:         Operation on selected items in the current directory"]
+  let text += ["  Global Action:  Operation on all selected items in the current buffer"]
+
+  syntax match FmHelpHead "\%1l=*"
+  syntax match FmHelpKey "([^)]*)"hs=s+1,he=e-1
+  syntax match FmHelpTitle ".*:"he=e-1
+  syntax keyword FmHelpTitle Actions Others
+
+  call setline(1, text)
+  setlocal nomodifiable
+
+  echo 'Press "q" to close this popup'
+  nnoremap <buffer> <nowait> <silent> q :<c-u>bdelete!<cr><c-l>
+endfunction
