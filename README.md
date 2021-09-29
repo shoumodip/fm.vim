@@ -35,7 +35,7 @@ Run `:Ex` and press <kbd>C-h</kbd>. It should display a help window. Here is the
 | <kbd>m</kbd> Move to a directory          | <kbd>h</kbd>         Go up one directory |
 | <kbd>p</kbd> Change permissions           | <kbd>i</kbd>         Start edit mode     |
 | <kbd>s</kbd> Execute shell commands       | <kbd>q</kbd>         Quit                |
-| <kbd>g</kbd> Run the next action globally | <kbd>gg</kbd>        Top of the buffer   |
+| <kbd>g</kbd> Run the next action globally | <kbd>r</kbd>         Refresh             |
 | <kbd>f</kbd> Create a file                | <kbd>Enter</kbd>     Open item           |
 | <kbd>d</kbd> Create a directory           | <kbd>BackSpace</kbd> Go up one directory |
 

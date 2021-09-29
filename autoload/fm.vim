@@ -665,7 +665,7 @@ function! fm#help()
   let text += ["   (m) Move to a directory           (h)    Go up one directory"]
   let text += ["   (p) Change permissions            (i)    Start edit mode"]
   let text += ["   (s) Execute shell commands        (q)    Quit"]
-  let text += ["   (g) Run the next action globally  (gg)   Top of the buffer"]
+  let text += ["   (g) Run the next action globally  (r)    Refresh"]
   let text += ["   (f) Create a file                 (<cr>) Open item"]
   let text += ["   (d) Create a directory            (<bs>) Go up one directory"]
   let text += [""]
