@@ -1,9 +1,3 @@
-" The command line options passed to ls while setting up the Fm buffer.
-let g:fm#ls_arguments = "-vp --group-directories-first"
-
-" Whether dotfiles will be kept hidden.
-let g:fm#hidden = v:false
-
 " Prompt the user for a input string.
 " This is just a pretty and CTRL-c handling wrapper around input()
 " See `:h input()` and `:h completion()` for more information
