@@ -633,22 +633,36 @@ function! fm#shellcmd(...)
   endif
 
   if len(cmd) > 0
-    let output = systemlist(cmd . " " . join(items, " "))
-
-    call fm#clear_marks(global)
-    call fm#load()
-
-    if len(output) <= &cmdheight
-      echo output[0]
-    elseif len(output) > 0
-      execute "split " . bufname() . " *popup*"
-      setlocal nonumber norelativenumber
-      setlocal buftype=nofile
-      call setline(1, output)
-      setlocal nomodifiable
-
+    if exists("g:asyncrun_name")
+      execute "AsyncRun " . cmd . " " . join(items, " ")
+      wincmd w
+      normal! gg
       echo 'Press "q" to close this popup'
       nnoremap <buffer> <nowait> <silent> q :<c-u>bdelete!<cr><c-l>
+    elseif exists("g:loaded_dispatch")
+      execute "Dispatch " . cmd . " " . join(items, " ")
+      wincmd w
+      normal! gg
+      echo 'Press "q" to close this popup'
+      nnoremap <buffer> <nowait> <silent> q :<c-u>bdelete!<cr><c-l>
+    else
+      let output = systemlist(cmd . " " . join(items, " "))
+
+      call fm#clear_marks(global)
+      call fm#load()
+
+      if len(output) <= &cmdheight
+        echo output[0]
+      elseif len(output) > 0
+        execute "split " . bufname() . " *popup*"
+        setlocal nonumber norelativenumber
+        setlocal buftype=nofile
+        call setline(1, output)
+        setlocal nomodifiable
+
+        echo 'Press "q" to close this popup'
+        nnoremap <buffer> <nowait> <silent> q :<c-u>bdelete!<cr><c-l>
+      endif
     endif
   endif
 endfunction

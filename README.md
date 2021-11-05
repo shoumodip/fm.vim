@@ -70,3 +70,9 @@ Whether dotfiles are hidden.
 
 ## Fm API
 Check out `autoload/fm.vim`. Every single function is documented with `jsdoc` style parameter annotations.
+
+## Plugins
+The shell command (<kbd>s</kbd>) feature of Fm has support for [vim-dispatch](https://github.com/tpope/vim-dispatch) and [asyncrun.vim](https://github.com/skywind3000/asyncrun.vim)
+
+## See also
+- [vim-dirvish](https://github.com/justinmk/vim-dirvish)
