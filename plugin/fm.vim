@@ -1,6 +1,7 @@
 if exists("g:loaded_fm")
   finish
 endif
+let g:loaded_fm = 1
 
 " Non overwriting variable definition mechanism
 function s:Let(var, value)
