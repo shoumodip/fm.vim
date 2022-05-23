@@ -664,6 +664,10 @@ function! fm#shellcmd(...)
             call fm#clear_marks(global)
             call fm#load()
 
+            if len(output) == 0
+                return
+            endif
+
             if len(output) <= &cmdheight
                 echo output[0]
             elseif len(output) > 0
