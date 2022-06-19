@@ -21,10 +21,10 @@ function s:HL(name, link)
 endfunction
 
 " Highlight groups
-call s:HL("FmPrompt", "Identifier")
-call s:HL("FmHeader", "Structure")
-call s:HL("FmFolder", "Identifier")
-call s:HL("FmMarked", "Special")
+call s:HL("FmPrompt", "Question")
+call s:HL("FmHeader", "Title")
+call s:HL("FmFolder", "Directory")
+call s:HL("FmMarked", "WarningMsg")
 
 call s:HL("FmHelpTitle", "Title")
 call s:HL("FmHelpKey", "Keyword")
