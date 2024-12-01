@@ -30,7 +30,7 @@ call s:HL("FmHelpTitle", "Title")
 call s:HL("FmHelpKey", "Keyword")
 call s:HL("FmHelpHead", "Comment")
 
-command! Explore call fm#open(expand("%:p:h"))
+command! Explore call fm#explore()
 command! Vexplore wincmd v | Explore
 command! Sexplore wincmd s | Explore
 command! Texplore tab split | Explore

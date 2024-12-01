@@ -202,6 +202,20 @@ function! fm#enter(...)
     endif
 endfunction
 
+" Enter into the parent directory
+function! fm#parent()
+    if &l:filetype ==# "fm"
+        let previous = bufname()
+        if previous ==# "/"
+            return
+        endif
+
+        let previous = fnamemodify(slice(previous, 0, -1), ":t")
+        call fm#open(bufname() . "..")
+        call search("^" . previous . "\\/\\?$", "c")
+    endif
+endfunction
+
 " Turn on edit mode in the current Fm buffer
 function! fm#edit_start()
     if &l:filetype !=# "fm"
@@ -348,7 +362,7 @@ function! fm#mappings()
     nnoremap <buffer> <nowait> <silent> gs :<c-u>call fm#shellcmd(v:true)<cr>
 
     nnoremap <buffer> <nowait> <silent> l  :<c-u>call fm#enter()<cr>
-    nnoremap <buffer> <nowait> <silent> h  :<c-u>call fm#enter("..")<cr>
+    nnoremap <buffer> <nowait> <silent> h  :<c-u>call fm#parent()<cr>
     nnoremap <buffer> <nowait> <silent> i  :<c-u>call fm#edit_start()<cr>
 
     nnoremap <buffer> <nowait> <silent> r  :<c-u>call fm#load()<cr>
@@ -714,4 +728,16 @@ function! fm#help()
 
     echo 'Press "q" to close this popup'
     nnoremap <buffer> <nowait> <silent> q :<c-u>bdelete!<cr><c-l>
+endfunction
+
+function! fm#explore()
+    let previous = bufnr()
+    call fm#open(expand("%:p:h"))
+
+    let name = fnamemodify(bufname(previous), ":t")
+    if name !=# ""
+        call search("^" . name . "\\/\\?$", "c")
+    endif
+
+    echo "Press <C-h> to get help"
 endfunction
