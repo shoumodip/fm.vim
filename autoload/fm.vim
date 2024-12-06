@@ -309,6 +309,7 @@ function! fm#load()
     let items = systemlist(command . shellescape(path))
 
     let line = line(".")
+    let save = getline(".")
 
     setlocal modifiable
     silent! normal! gg"_dG
@@ -336,6 +337,11 @@ function! fm#load()
     endfor
 
     syntax match FmHeader "\%1l.*"
+
+    let found = search("^" . save . "\\/\\?$", "cw")
+    if found == 0
+        execute "normal! " . line . "G"
+    endif
 endfunction
 
 " The buffer local mappings in the Fm buffer
@@ -455,7 +461,7 @@ function! fm#mkdir(...)
 
             call system("mkdir -p " . shellescape(directory))
             call fm#open(dirname, v:true)
-            call search(fnamemodify(directory, ":t"), "cw")
+            call search("^" . fnamemodify(directory, ":t") . "/$", "cw")
         endif
     endif
 endfunction
@@ -472,7 +478,7 @@ function! fm#touch(...)
             call system("mkdir -p " . shellescape(dirname))
             call system("touch " . shellescape(file))
             call fm#open(dirname, v:true)
-            call search(fnamemodify(file, ":t"), "cw")
+            call search("^" . fnamemodify(file, ":t") . "$", "cw")
         endif
     endif
 endfunction
