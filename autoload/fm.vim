@@ -616,7 +616,20 @@ function! fm#edit_start()
 endfunction
 
 function! fm#new(path, ...)
-    let path = fnamemodify(resolve(a:path), ":p")
+    if a:path ==# ""
+        let prev = fnamemodify(bufname(), ":t")
+        let path = fnamemodify(expand("%:p:h"), ":p")
+    else
+        let prev = resolve(fnamemodify(bufname(), ":p"))
+        let path = fnamemodify(resolve(a:path), ":p")
+
+        if fnamemodify(prev, ":h") ==# resolve(fnamemodify(path, ":p"))
+            let prev = fnamemodify(prev, ":t")
+        else
+            let prev = ""
+        endif
+    endif
+
     let replace = v:false
     if exists("a:1")
         let replace = a:1
@@ -643,6 +656,10 @@ function! fm#new(path, ...)
 
     call s:buffer_reload()
     call s:buffer_highlight()
+
+    if prev !=# ""
+        call search("^\\V"..prev.."\\M\\/\\?$", "cw")
+    endif
 
     autocmd BufEnter    <buffer> call s:buffer_enter_callback()
     autocmd CursorMoved <buffer> call s:cursor_moved_callback()
