@@ -616,12 +616,14 @@ function! fm#edit_start()
 endfunction
 
 function! fm#new(path, ...)
+    let prev = substitute(bufname(), '^\[Fm #[0-9]\+\] ', '', '')
     if a:path ==# ""
-        let prev = fnamemodify(bufname(), ":t")
-        let path = fnamemodify(expand("%:p:h"), ":p")
+        let path = substitute(expand("%"), '^\[Fm #[0-9]\+\] ', '', '')
+        let path = fnamemodify(fnamemodify(path, ":p:h"), ":p")
+        let prev = fnamemodify(prev, ":t")
     else
-        let prev = resolve(fnamemodify(bufname(), ":p"))
         let path = fnamemodify(resolve(a:path), ":p")
+        let prev = resolve(fnamemodify(prev, ":p"))
 
         if fnamemodify(prev, ":h") ==# resolve(fnamemodify(path, ":p"))
             let prev = fnamemodify(prev, ":t")
@@ -686,6 +688,38 @@ function! fm#new(path, ...)
     nnoremap <buffer> <nowait> <silent> D :<C-u>call fm#delete()<CR>
     nnoremap <buffer> <nowait> <silent> i :<C-u>call fm#edit_start()<CR>
     nnoremap <buffer> <nowait> <silent> q :<C-u>bdelete!<CR>
+
+    nnoremap <buffer> <nowait> <silent> <C-h> :<C-u>call fm#help()<CR>
+
+    echo "Press <C-h> to get help"
+endfunction
+
+function! fm#help()
+    new
+    setlocal buftype=nofile
+
+    let text  = ["Backspace | Enter Parent Directory"]
+    let text += ["Enter     | Enter item under the cursor"]
+    let text += ["C-h       | Open this help window"]
+    let text += ["f         | Create a file"]
+    let text += ["d         | Create a directory"]
+    let text += ["x         | Toggle mark for the item under the cursor"]
+    let text += ["X         | Toggle marks in the current directory"]
+    let text += ["D         | Delete marked items, otherwise item under the cursor"]
+    let text += ["m         | Move marked items into the current directory"]
+    let text += ["c         | Copy marked items into the current directory"]
+    let text += ["r         | Reload"]
+    let text += ["R         | Rename item under the cursor"]
+    let text += ["+         | Add permissions to the item under the cursor"]
+    let text += ["-         | Remove permissions from the item under the cursor"]
+    let text += ["!         | Execute a shell command on the marked items, otherwise item under the cursor"]
+    let text += ["i         | Enter insert mode"]
+    call setline(1, text)
+    setlocal nomodifiable
+
+    syntax match SpecialKey "^[^ ]*"
+    syntax match Keyword "|"
+    nnoremap <buffer> <nowait> <silent> q :<c-u>bdelete!<cr><c-l>
 endfunction
 
 function! fm#confirm()

@@ -37,6 +37,7 @@ $ git clone https://github.com/shoumodip/fm.vim
 | -------------------- | ---------------------------------------------------------------------------- |
 | <kbd>Backspace</kbd> | Enter Parent Directory                                                       |
 | <kbd>Enter</kbd>     | Enter item under the cursor                                                  |
+| <kbd>C-h</kbd>       | Open a help window containing this list of keybindings                       |
 | <kbd>f</kbd>         | Create a file                                                                |
 | <kbd>d</kbd>         | Create a directory                                                           |
 | <kbd>x</kbd>         | Toggle mark for the item under the cursor                                    |
